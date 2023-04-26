@@ -1,0 +1,31 @@
+#!/bin/bash
+
+#creation docker
+doker run -d --name api debian
+
+docker exec -it api /bin/bash
+
+apt-get update
+apt-get install -y curl
+apt-get install -y jq
+apt-get install -y default-mysql-client
+
+# faire un call api
+curl https://cve.circl.lu/api/last > cve_json
+
+#parser en jq
+jq . cve_json  | jq ' .[] .capec[] | {id,summary,solutions}' > cve_data
+
+`exit`
+
+#creation sql docker
+docker run -d --name mysql -e MYSQL_ROOT_PASSWORD=password mysql
+
+#attente de démarrage sql
+sleep 20
+
+docker exec -it mysql mysql -u root -ppassword
+
+
+#inserer les données cve_data
+cat cve_data | while read id summary solutions; do echo "INSERT INTO table_name (id, summary, solutions) VALUES ('$id', '$summary', '$solutions');" | mysql -h localhost -u root -ppassword -D database_name; done
